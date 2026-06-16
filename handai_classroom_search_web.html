@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阪大 教室検索システム (完全版)</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; background-color: #f4f7f6; }
+        
+        .header-area { text-align: center; margin-bottom: 20px; }
+        .header-area h2 { margin-bottom: 5px; color: #333; }
+        .header-area p { color: #666; font-size: 0.9em; margin-top: 0; }
+        
+        .search-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        input[type="text"] { padding: 12px; font-size: 16px; flex-grow: 1; border: 1px solid #ccc; border-radius: 6px; }
+        button { padding: 12px 20px; font-size: 16px; cursor: pointer; border: none; background-color: #007bff; color: white; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        button:hover { background-color: #0056b3; }
+        
+        .result-card { background-color: #fff; border-left: 5px solid #007bff; padding: 15px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .badge { display: inline-block; padding: 4px 8px; background: #e0e0e0; border-radius: 12px; font-size: 0.8em; font-weight: bold; margin-bottom: 8px;}
+        .score-badge { float: right; color: #d84315; font-size: 0.85em; font-weight: bold; background: #fbe9e7; padding: 3px 8px; border-radius: 10px; }
+        
+        .learn-btn { margin-top: 10px; background-color: #4caf50; color: white; font-size: 14px; padding: 8px 12px; width: 100%; border: none; border-radius: 4px; transition: 0.3s; cursor: pointer; }
+        .learn-btn:hover { background-color: #388e3c; }
+        .learn-btn.learned { background-color: #9e9e9e; cursor: default; }
+        .error { color: red; font-weight: bold; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="header-area">
+        <h2>阪大 教室検索システム</h2>
+        <p>全 135 件の教室データを内蔵。開いてすぐに使えます。</p>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="略称や棟を入力 (例: 全教A101, U3 211)" autofocus>
+        <button id="searchBtn" onclick="searchRoom()">検索</button>
+    </div>
+
+    <div id="resultArea"></div>
+
+    <script>
+        // Pythonによって埋め込まれた全135件のマスターデータ
+        const rooms = [
+    {
+        "id": "共A101",
+        "primaryAbbr": "共A101",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A101"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 1F",
+        "details": "講義室 (定員55名/一般講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A102",
+        "primaryAbbr": "共A102",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A102"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 1F",
+        "details": "講義室 (定員115名/中規模講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A103",
+        "primaryAbbr": "共A103",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A103"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 1F",
+        "details": "講義室 (定員56名/可動机・グループワーク対応)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A104",
+        "primaryAbbr": "共A104",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A104"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 1F",
+        "details": "講義室 (定員122名/中規模講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A114",
+        "primaryAbbr": "共A114",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A114"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 1F",
+        "details": "講義室 (定員84名/一般講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A201",
+        "primaryAbbr": "共A201",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A201"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 2F",
+        "details": "講義室 (定員122名/中規模講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A202",
+        "primaryAbbr": "共A202",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A202"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 2F",
+        "details": "講義室 (定員122名/中規模講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A203",
+        "primaryAbbr": "共A203",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A203"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 2F",
+        "details": "講義室 (定員56名/可動机・グループワーク対応)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A204",
+        "primaryAbbr": "共A204",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A204"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 2F",
+        "details": "講義室 (定員50名/可動机・少人数授業)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A205",
+        "primaryAbbr": "共A205",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A205"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 2F",
+        "details": "講義室 (定員50名/可動机・少人数授業)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A214",
+        "primaryAbbr": "共A214",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A214"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 2F",
+        "details": "講義室 (定員84名/一般講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A301",
+        "primaryAbbr": "共A301",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A301"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員122名/中規模講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A302",
+        "primaryAbbr": "共A302",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A302"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員122名/中規模講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A303",
+        "primaryAbbr": "共A303",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A303"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員50名/一般講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A304",
+        "primaryAbbr": "共A304",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A304"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員50名/可動机・グループワーク対応)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A305",
+        "primaryAbbr": "共A305",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A305"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員50名/可動机・少人数授業)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A311",
+        "primaryAbbr": "共A311",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A311"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (一般講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A312",
+        "primaryAbbr": "共A312",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A312"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "アクティブラーニング教室 (HALC2/先進的対話授業)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A313",
+        "primaryAbbr": "共A313",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A313"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員30名/少人数外国語・演習)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A315",
+        "primaryAbbr": "共A315",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A315"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (定員50名/一般講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共A316",
+        "primaryAbbr": "共A316",
+        "aliases": [
+            "管理・講義A棟",
+            "全教A316"
+        ],
+        "location": "全学教育推進機構 管理・講義A棟 3F",
+        "details": "講義室 (一般講義・全学共通科目)",
+        "campus": "豊中"
+    },
+    {
+        "id": "大講義室",
+        "primaryAbbr": "大講義室",
+        "aliases": [
+            "講義B棟"
+        ],
+        "location": "全学教育推進機構 講義B棟 1F",
+        "details": "大型講義室 (定員309名/大人数基礎科目・共通授業)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B107",
+        "primaryAbbr": "共B107",
+        "aliases": [
+            "講義B棟",
+            "全教B107"
+        ],
+        "location": "全学教育推進機構 講義B棟 1F",
+        "details": "講義室 (定員125名/中規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B108",
+        "primaryAbbr": "共B108",
+        "aliases": [
+            "講義B棟",
+            "全教B108"
+        ],
+        "location": "全学教育推進機構 講義B棟 1F",
+        "details": "講義室 (定員125名/中規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B118",
+        "primaryAbbr": "共B118",
+        "aliases": [
+            "講義B棟",
+            "全教B118"
+        ],
+        "location": "全学教育推進機構 講義B棟 1F",
+        "details": "講義室 (定員152名/中大規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B206",
+        "primaryAbbr": "共B206",
+        "aliases": [
+            "講義B棟",
+            "全教B206"
+        ],
+        "location": "全学教育推進機構 講義B棟 2F",
+        "details": "講義室 (定員56名/可動机・グループワーク対応)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B207",
+        "primaryAbbr": "共B207",
+        "aliases": [
+            "講義B棟",
+            "全教B207"
+        ],
+        "location": "全学教育推進機構 講義B棟 2F",
+        "details": "講義室 (定員122名/中規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B208",
+        "primaryAbbr": "共B208",
+        "aliases": [
+            "講義B棟",
+            "全教B208"
+        ],
+        "location": "全学教育推進機構 講義B棟 2F",
+        "details": "講義室 (定員122名/中規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B218",
+        "primaryAbbr": "共B218",
+        "aliases": [
+            "講義B棟",
+            "全教B218"
+        ],
+        "location": "全学教育推進機構 講義B棟 2F",
+        "details": "講義室 (定員149名/中大規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共B306",
+        "primaryAbbr": "共B306",
+        "aliases": [
+            "講義B棟",
+            "全教B306"
+        ],
+        "location": "全学教育推進機構 講義B棟 3F",
+        "details": "講義室 (定員56名/一般講義・演習)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C101",
+        "primaryAbbr": "共C101",
+        "aliases": [
+            "講義C棟",
+            "全教C101"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "講義室 (定員105名/外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C102",
+        "primaryAbbr": "共C102",
+        "aliases": [
+            "講義C棟",
+            "全教C102"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "講義室 (定員156名/外国語・中大規模講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C104",
+        "primaryAbbr": "共C104",
+        "aliases": [
+            "講義C棟",
+            "全教C104"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C105",
+        "primaryAbbr": "共C105",
+        "aliases": [
+            "講義C棟",
+            "全教C105"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C106",
+        "primaryAbbr": "共C106",
+        "aliases": [
+            "講義C棟",
+            "全教C106"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C107",
+        "primaryAbbr": "共C107",
+        "aliases": [
+            "講義C棟",
+            "全教C107"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C201",
+        "primaryAbbr": "共C201",
+        "aliases": [
+            "講義C棟",
+            "全教C201"
+        ],
+        "location": "全学教育推進機構 講義C棟 2F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C202",
+        "primaryAbbr": "共C202",
+        "aliases": [
+            "講義C棟",
+            "全教C202"
+        ],
+        "location": "全学教育推進機構 講義C棟 2F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C203",
+        "primaryAbbr": "共C203",
+        "aliases": [
+            "講義C棟",
+            "全教C203"
+        ],
+        "location": "全学教育推進機構 講義C棟 2F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C204",
+        "primaryAbbr": "共C204",
+        "aliases": [
+            "講義C棟",
+            "全教C204"
+        ],
+        "location": "全学教育推進機構 講義C棟 2F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C205",
+        "primaryAbbr": "共C205",
+        "aliases": [
+            "講義C棟",
+            "全教C205"
+        ],
+        "location": "全学教育推進機構 講義C棟 2F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C206",
+        "primaryAbbr": "共C206",
+        "aliases": [
+            "講義C棟",
+            "全教C206"
+        ],
+        "location": "全学教育推進機構 講義C棟 2F",
+        "details": "講義室 (外国語・共通講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C301",
+        "primaryAbbr": "共C301",
+        "aliases": [
+            "講義C棟",
+            "全教C301"
+        ],
+        "location": "全学教育推進機構 講義C棟 3F",
+        "details": "演習室 (外国語授業・少人数ゼミエリア)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C302",
+        "primaryAbbr": "共C302",
+        "aliases": [
+            "講義C棟",
+            "全教C302"
+        ],
+        "location": "全学教育推進機構 講義C棟 3F",
+        "details": "演習室 (外国語授業・少人数ゼミエリア)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C305",
+        "primaryAbbr": "共C305",
+        "aliases": [
+            "講義C棟",
+            "全教C305"
+        ],
+        "location": "全学教育推進機構 講義C棟 3F",
+        "details": "演習室 (外国語授業・少人数ゼミエリア)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共C308",
+        "primaryAbbr": "共C308",
+        "aliases": [
+            "講義C棟",
+            "全教C308"
+        ],
+        "location": "全学教育推進機構 講義C棟 3F",
+        "details": "演習室 (外国語授業・少人数ゼミエリア)",
+        "campus": "豊中"
+    },
+    {
+        "id": "S1",
+        "primaryAbbr": "S1",
+        "aliases": [
+            "講義C棟"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "多目的講義スペース",
+        "campus": "豊中"
+    },
+    {
+        "id": "プロジェクトルーム",
+        "primaryAbbr": "プロジェクトルーム",
+        "aliases": [
+            "講義C棟"
+        ],
+        "location": "全学教育推進機構 講義C棟 1F",
+        "details": "グループ学習・PBL（課題解決型学習）用ルーム",
+        "campus": "豊中"
+    },
+    {
+        "id": "Science Studio A",
+        "primaryAbbr": "Science Studio A",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 1F",
+        "details": "サイエンス・コモンズ (自習・多目的アクティブラーニング)",
+        "campus": "豊中"
+    },
+    {
+        "id": "Science Studio B",
+        "primaryAbbr": "Science Studio B",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 1F",
+        "details": "サイエンス・コモンズ (畳スペース併設・対話型スペース)",
+        "campus": "豊中"
+    },
+    {
+        "id": "Science Lab A",
+        "primaryAbbr": "Science Lab A",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 1F",
+        "details": "サイエンス・ラボ (実験・分析・高精度機器配備)",
+        "campus": "豊中"
+    },
+    {
+        "id": "Science Lab B",
+        "primaryAbbr": "Science Lab B",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 1F",
+        "details": "サイエンス・ラボ (実験・分析・共同研究)",
+        "campus": "豊中"
+    },
+    {
+        "id": "化学実験室A",
+        "primaryAbbr": "化学実験室A",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 2F",
+        "details": "自然科学基礎実験 (化学実験・基礎課程)",
+        "campus": "豊中"
+    },
+    {
+        "id": "生物学実験室1",
+        "primaryAbbr": "生物学実験室1",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 2F",
+        "details": "自然科学基礎実験 (生物学実験・基礎課程)",
+        "campus": "豊中"
+    },
+    {
+        "id": "生物学実験室2",
+        "primaryAbbr": "生物学実験室2",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 2F",
+        "details": "自然科学基礎実験 (生物学実験・基礎課程)",
+        "campus": "豊中"
+    },
+    {
+        "id": "生物学実験室3",
+        "primaryAbbr": "生物学実験室3",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 2F",
+        "details": "自然科学基礎実験 (生物学実験・基礎課程)",
+        "campus": "豊中"
+    },
+    {
+        "id": "生物学実験室4",
+        "primaryAbbr": "生物学実験室4",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 2F",
+        "details": "自然科学基礎実験 (生物学実験・基礎課程)",
+        "campus": "豊中"
+    },
+    {
+        "id": "化学実験室B",
+        "primaryAbbr": "化学実験室B",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 3F",
+        "details": "自然科学基礎実験 (化学実験・応用基礎)",
+        "campus": "豊中"
+    },
+    {
+        "id": "MultiLab",
+        "primaryAbbr": "MultiLab",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 3F",
+        "details": "オープン実験スペース (分野横断型ものづくり演習)",
+        "campus": "豊中"
+    },
+    {
+        "id": "MultiLab Mini",
+        "primaryAbbr": "MultiLab Mini",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 3F",
+        "details": "小規模実験・工作スペース",
+        "campus": "豊中"
+    },
+    {
+        "id": "化学実験室C",
+        "primaryAbbr": "化学実験室C",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 4F",
+        "details": "自然科学基礎実験 (化学実験)",
+        "campus": "豊中"
+    },
+    {
+        "id": "化学実験室D",
+        "primaryAbbr": "化学実験室D",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 4F",
+        "details": "自然科学基礎実験 (化学実験)",
+        "campus": "豊中"
+    },
+    {
+        "id": "化学実験室E",
+        "primaryAbbr": "化学実験室E",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 4F",
+        "details": "自然科学基礎実験 (化学実験)",
+        "campus": "豊中"
+    },
+    {
+        "id": "物理学実験室E",
+        "primaryAbbr": "物理学実験室E",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 4F",
+        "details": "自然科学基礎実験 (物理学実験)",
+        "campus": "豊中"
+    },
+    {
+        "id": "物理学実験室F",
+        "primaryAbbr": "物理学実験室F",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 4F",
+        "details": "自然科学基礎実験 (物理学実験)",
+        "campus": "豊中"
+    },
+    {
+        "id": "物理学実験室A",
+        "primaryAbbr": "物理学実験室A",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 5F",
+        "details": "自然科学基礎実験 (物理学実験・力学・電磁気等)",
+        "campus": "豊中"
+    },
+    {
+        "id": "物理学実験室B",
+        "primaryAbbr": "物理学実験室B",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 5F",
+        "details": "自然科学基礎実験 (物理学実験・力学・電磁気等)",
+        "campus": "豊中"
+    },
+    {
+        "id": "物理学実験室C",
+        "primaryAbbr": "物理学実験室C",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 5F",
+        "details": "自然科学基礎実験 (物理学実験・光・量子等)",
+        "campus": "豊中"
+    },
+    {
+        "id": "物理学実験室D",
+        "primaryAbbr": "物理学実験室D",
+        "aliases": [
+            "実験棟"
+        ],
+        "location": "全学教育推進機構 実験棟 5F",
+        "details": "自然科学基礎実験 (物理学実験・光・量子等)",
+        "campus": "豊中"
+    },
+    {
+        "id": "カルチエ (Quartier)",
+        "primaryAbbr": "カルチエ (Quartier)",
+        "aliases": [
+            "総合棟Ⅰ"
+        ],
+        "location": "全学教育推進機構 総合棟Ⅰ 1F",
+        "details": "ステューデント・コモンズ (知的交流・グループ学習空間)",
+        "campus": "豊中"
+    },
+    {
+        "id": "カルチエ ミュルチラング",
+        "primaryAbbr": "カルチエ ミュルチラング",
+        "aliases": [
+            "総合棟Ⅰ"
+        ],
+        "location": "全学教育推進機構 総合棟Ⅰ 1F",
+        "details": "多言語交流・国際交流専用オープンスペース",
+        "campus": "豊中"
+    },
+    {
+        "id": "セミナー室A",
+        "primaryAbbr": "セミナー室A",
+        "aliases": [
+            "総合棟Ⅰ"
+        ],
+        "location": "全学教育推進機構 総合棟Ⅰ 2F",
+        "details": "コモンズセミナー室 (定員42名/可動机・プレゼン対応)",
+        "campus": "豊中"
+    },
+    {
+        "id": "セミナー室B",
+        "primaryAbbr": "セミナー室B",
+        "aliases": [
+            "総合棟Ⅰ"
+        ],
+        "location": "全学教育推進機構 総合棟Ⅰ 2F",
+        "details": "コモンズセミナー室 (定員36名/可動机・ワークショップ用)",
+        "campus": "豊中"
+    },
+    {
+        "id": "セミナー室C",
+        "primaryAbbr": "セミナー室C",
+        "aliases": [
+            "総合棟Ⅰ"
+        ],
+        "location": "全学教育推進機構 総合棟Ⅰ 2F",
+        "details": "コモンズセミナー室 (可動机・ディスカッション用)",
+        "campus": "豊中"
+    },
+    {
+        "id": "セミナー室D",
+        "primaryAbbr": "セミナー室D",
+        "aliases": [
+            "総合棟Ⅰ"
+        ],
+        "location": "全学教育推進機構 総合棟Ⅰ 2F",
+        "details": "コモンズセミナー室 (可動机・ディスカッション用)",
+        "campus": "豊中"
+    },
+    {
+        "id": "文系大講義室",
+        "primaryAbbr": "文系大講義室",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 1F",
+        "details": "人文学科共通の大規模講義・イベント用 (定員約250名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室11",
+        "primaryAbbr": "講義室11",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 1F",
+        "details": "専門科目講義用 (定員約80名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室12",
+        "primaryAbbr": "講義室12",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 1F",
+        "details": "専門科目講義用 (定員約60名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "中講義室21",
+        "primaryAbbr": "中講義室21",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 2F",
+        "details": "専門科目・基盤面講義 (定員約120名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "中講義室22",
+        "primaryAbbr": "中講義室22",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 2F",
+        "details": "専門科目講義用 (定員約100名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "マルチメディア演習室",
+        "primaryAbbr": "マルチメディア演習室",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 2F",
+        "details": "語学リスニング・情報処理・PC配備型演習",
+        "campus": "豊中"
+    },
+    {
+        "id": "演習室31",
+        "primaryAbbr": "演習室31",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 3F",
+        "details": "専修別専門演習・卒論ゼミ用 (少人数)",
+        "campus": "豊中"
+    },
+    {
+        "id": "演習室32",
+        "primaryAbbr": "演習室32",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 3F",
+        "details": "専修別専門演習・卒論ゼミ用 (少人数)",
+        "campus": "豊中"
+    },
+    {
+        "id": "演習室41",
+        "primaryAbbr": "演習室41",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 4F",
+        "details": "大学院専門科目・研究指導ゼミ用",
+        "campus": "豊中"
+    },
+    {
+        "id": "演習室42",
+        "primaryAbbr": "演習室42",
+        "aliases": [
+            "文系講義棟"
+        ],
+        "location": "文学部 文系講義棟 4F",
+        "details": "大学院専門科目・研究指導ゼミ用",
+        "campus": "豊中"
+    },
+    {
+        "id": "文学部大会議室",
+        "primaryAbbr": "文学部大会議室",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 1F",
+        "details": "部局内重要会議・国際学術シンポジウム用",
+        "campus": "豊中"
+    },
+    {
+        "id": "学務担当（教務窓口）",
+        "primaryAbbr": "学務担当（教務窓口）",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 1F",
+        "details": "文学部・人文学研究科 履修・証明書・教務窓口",
+        "campus": "豊中"
+    },
+    {
+        "id": "文学部研究図書室",
+        "primaryAbbr": "文学部研究図書室",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 2F",
+        "details": "人文学専門書・貴重書・紀要等の保管と閲覧・自習スペース",
+        "campus": "豊中"
+    },
+    {
+        "id": "人文学研究科共同研究室1",
+        "primaryAbbr": "人文学研究科共同研究室1",
+        "aliases": [
+            "文法経本館",
+            "人文学研究科全教同研究室1"
+        ],
+        "location": "文学部 文法経本館 3F",
+        "details": "思想・歴史・文学系分野の院生・教員共同研究スペース",
+        "campus": "豊中"
+    },
+    {
+        "id": "演習室301",
+        "primaryAbbr": "演習室301",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 3F",
+        "details": "文学部専門科目講義・合同ゼミ用",
+        "campus": "豊中"
+    },
+    {
+        "id": "人文学研究科共同研究室2",
+        "primaryAbbr": "人文学研究科共同研究室2",
+        "aliases": [
+            "文法経本館",
+            "人文学研究科全教同研究室2"
+        ],
+        "location": "文学部 文法経本館 4F",
+        "details": "行動学・芸術学系分野の共同研究・データ分析スペース",
+        "campus": "豊中"
+    },
+    {
+        "id": "演習室401",
+        "primaryAbbr": "演習室401",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 4F",
+        "details": "大学院研究指導・高度専門セミナー用",
+        "campus": "豊中"
+    },
+    {
+        "id": "文学部資料室",
+        "primaryAbbr": "文学部資料室",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 5F",
+        "details": "歴史的史料・未翻刻資料・貴重図書の厳重保管室",
+        "campus": "豊中"
+    },
+    {
+        "id": "情報解析室",
+        "primaryAbbr": "情報解析室",
+        "aliases": [
+            "文法経本館"
+        ],
+        "location": "文学部 文法経本館 5F",
+        "details": "人文科学デジタルテキスト・統計データ解析用PC設置室",
+        "campus": "豊中"
+    },
+    {
+        "id": "法経大講義室",
+        "primaryAbbr": "法経大講義室",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 1F",
+        "details": "法経学部共通の大規模講義・基礎科目用 (定員約300名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室21",
+        "primaryAbbr": "講義室21",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 2F",
+        "details": "法学部・経済学部専門講義室 (定員約150名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室22",
+        "primaryAbbr": "講義室22",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 2F",
+        "details": "法学部・経済学部専門講義室 (定員約120名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室23",
+        "primaryAbbr": "講義室23",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 2F",
+        "details": "専門講義用 (定員約100名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室24",
+        "primaryAbbr": "講義室24",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 2F",
+        "details": "専門講義用 (定員約80名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "中講義室31",
+        "primaryAbbr": "中講義室31",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 3F",
+        "details": "コア専門科目・中規模授業 (定員約120名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "中講義室32",
+        "primaryAbbr": "中講義室32",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 3F",
+        "details": "専門科目講義用 (定員約100名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "中講義室35",
+        "primaryAbbr": "中講義室35",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 3F",
+        "details": "専門科目講義・演習併用",
+        "campus": "豊中"
+    },
+    {
+        "id": "法経演習室41",
+        "primaryAbbr": "法経演習室41",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 4F",
+        "details": "法学部専門ゼミナール・報告会用 (少人数)",
+        "campus": "豊中"
+    },
+    {
+        "id": "法経演習室42",
+        "primaryAbbr": "法経演習室42",
+        "aliases": [
+            "文法経講義棟"
+        ],
+        "location": "法学部 / 経済学部 文法経講義棟 4F",
+        "details": "経済学部専門ゼミナール・輪読会用 (少人数)",
+        "campus": "豊中"
+    },
+    {
+        "id": "共通講義室A128",
+        "primaryAbbr": "共通講義室A128",
+        "aliases": [
+            "理学部本館(A棟)",
+            "全教通講義室A128"
+        ],
+        "location": "理学部 理学部本館(A棟) 1F",
+        "details": "理学専門科目および他学部共通講義用",
+        "campus": "豊中"
+    },
+    {
+        "id": "共通講義室A201",
+        "primaryAbbr": "共通講義室A201",
+        "aliases": [
+            "理学部本館(A棟)",
+            "全教通講義室A201"
+        ],
+        "location": "理学部 理学部本館(A棟) 2F",
+        "details": "数学・物理・化学各学科 専門講義室",
+        "campus": "豊中"
+    },
+    {
+        "id": "共通講義室A300",
+        "primaryAbbr": "共通講義室A300",
+        "aliases": [
+            "理学部本館(A棟)",
+            "全教通講義室A300"
+        ],
+        "location": "理学部 理学部本館(A棟) 3F",
+        "details": "高学年次専門科目・卒業研究関連講義",
+        "campus": "豊中"
+    },
+    {
+        "id": "大講義室D101",
+        "primaryAbbr": "大講義室D101",
+        "aliases": [
+            "理学部講義棟(D棟)"
+        ],
+        "location": "理学部 理学部講義棟(D棟) 1F",
+        "details": "理学部最大級の階段講義室 (大人数基礎・専門科目用)",
+        "campus": "豊中"
+    },
+    {
+        "id": "大講義室D201",
+        "primaryAbbr": "大講義室D201",
+        "aliases": [
+            "理学部講義棟(D棟)"
+        ],
+        "location": "理学部 理学部講義棟(D棟) 2F",
+        "details": "中大規模の専門講義・学術発表用",
+        "campus": "豊中"
+    },
+    {
+        "id": "第一講義室",
+        "primaryAbbr": "第一講義室",
+        "aliases": [
+            "理学部講義棟(D棟)"
+        ],
+        "location": "理学部 理学部講義棟(D棟) 1F",
+        "details": "各学科の専門授業・セミナー用",
+        "campus": "豊中"
+    },
+    {
+        "id": "南部陽一郎ホール",
+        "primaryAbbr": "南部陽一郎ホール",
+        "aliases": [
+            "理学部南部陽一郎ホール"
+        ],
+        "location": "理学部 理学部南部陽一郎ホール 1F",
+        "details": "ノーベル賞記念ホール (高水準国際会議・大規模学術セミナー)",
+        "campus": "豊中"
+    },
+    {
+        "id": "シグマホール",
+        "primaryAbbr": "シグマホール",
+        "aliases": [
+            "基礎工学国際棟"
+        ],
+        "location": "基礎工学部 基礎工学国際棟 1F",
+        "details": "基礎工学国際棟の大規模多目的ホール (シンポジウム・基調講演・大講義)",
+        "campus": "豊中"
+    },
+    {
+        "id": "基礎工学大講義室A101",
+        "primaryAbbr": "基礎工学大講義室A101",
+        "aliases": [
+            "基礎工学部A棟"
+        ],
+        "location": "基礎工学部 基礎工学部A棟 1F",
+        "details": "基礎工学部最大規模の講義室 (定員約250名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室A201",
+        "primaryAbbr": "講義室A201",
+        "aliases": [
+            "基礎工学部A棟"
+        ],
+        "location": "基礎工学部 基礎工学部A棟 2F",
+        "details": "専門科目講義用 (定員約120名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "講義室A305",
+        "primaryAbbr": "講義室A305",
+        "aliases": [
+            "基礎工学部A棟"
+        ],
+        "location": "基礎工学部 基礎工学部A棟 3F",
+        "details": "専門科目講義・演習用 (定員約80名)",
+        "campus": "豊中"
+    },
+    {
+        "id": "シグマ演習室",
+        "primaryAbbr": "シグマ演習室",
+        "aliases": [
+            "基礎工学部B棟"
+        ],
+        "location": "基礎工学部 基礎工学部B棟 1F",
+        "details": "情報科学・数理科学系 プログラミング・計算機演習用室",
+        "campus": "豊中"
+    },
+    {
+        "id": "基礎工学第一実験室",
+        "primaryAbbr": "基礎工学第一実験室",
+        "aliases": [
+            "基礎工学部B棟"
+        ],
+        "location": "基礎工学部 基礎工学部B棟 2F",
+        "details": "電子物理・物性・機械系 学生実験用エリア",
+        "campus": "豊中"
+    },
+    {
+        "id": "工学大講義室J101",
+        "primaryAbbr": "工学大講義室J101",
+        "aliases": [
+            "工学J棟"
+        ],
+        "location": "工学部 工学J棟 1F",
+        "details": "工学部最大規模の階段型大講義室 (定員約350名・共通大クラス用)",
+        "campus": "吹田"
+    },
+    {
+        "id": "講義室J102",
+        "primaryAbbr": "講義室J102",
+        "aliases": [
+            "工学J棟"
+        ],
+        "location": "工学部 工学J棟 1F",
+        "details": "各学科共通専門講義用 (定員約150名)",
+        "campus": "吹田"
+    },
+    {
+        "id": "講義室J201",
+        "primaryAbbr": "講義室J201",
+        "aliases": [
+            "工学J棟"
+        ],
+        "location": "工学部 工学J棟 2F",
+        "details": "専門科目講義用 (定員約120名)",
+        "campus": "吹田"
+    },
+    {
+        "id": "講義室J205",
+        "primaryAbbr": "講義室J205",
+        "aliases": [
+            "工学J棟"
+        ],
+        "location": "工学部 工学J棟 2F",
+        "details": "専門科目講義・演習用 (定員約100名)",
+        "campus": "吹田"
+    },
+    {
+        "id": "U1講義室101",
+        "primaryAbbr": "U1講義室101",
+        "aliases": [
+            "工学講義棟"
+        ],
+        "location": "工学部 工学講義棟 1F",
+        "details": "地球総合工学・機械工学系 専門講義室",
+        "campus": "吹田"
+    },
+    {
+        "id": "U1講義室202",
+        "primaryAbbr": "U1講義室202",
+        "aliases": [
+            "工学講義棟"
+        ],
+        "location": "工学部 工学講義棟 2F",
+        "details": "電子情報・電気工学系 専門講義室",
+        "campus": "吹田"
+    },
+    {
+        "id": "テクノアライアンスホール",
+        "primaryAbbr": "テクノアライアンスホール",
+        "aliases": [
+            "工学総合研究棟"
+        ],
+        "location": "工学部 工学総合研究棟 1F",
+        "details": "工学総合研究棟 (産学連携・最先端研究成果発表・国際会議用)",
+        "campus": "吹田"
+    },
+    {
+        "id": "センテラス コンベンションホール",
+        "primaryAbbr": "センテラス コンベンションホール",
+        "aliases": [
+            "センテラス(共創棟)"
+        ],
+        "location": "工学部 センテラス(共創棟) 1F",
+        "details": "共創棟 (大規模レセプション・国際学術交流プラザ)",
+        "campus": "吹田"
+    },
+    {
+        "id": "大講義室101",
+        "primaryAbbr": "大講義室101",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 1F",
+        "details": "外国語学部大クラス講義・学年全体集会用 (定員約200名)",
+        "campus": "箕面"
+    },
+    {
+        "id": "大講義室102",
+        "primaryAbbr": "大講義室102",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 1F",
+        "details": "専門科目・地域文化基礎講義用 (定員約150名)",
+        "campus": "箕面"
+    },
+    {
+        "id": "大多目的ホール",
+        "primaryAbbr": "大多目的ホール",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 2F",
+        "details": "演劇上演、国際文化発表、大型シンポジウム対応スペース",
+        "campus": "箕面"
+    },
+    {
+        "id": "中講義室301",
+        "primaryAbbr": "中講義室301",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 3F",
+        "details": "言語別中規模講義・概論クラス用 (定員約100名)",
+        "campus": "箕面"
+    },
+    {
+        "id": "中講義室405",
+        "primaryAbbr": "中講義室405",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 4F",
+        "details": "専門科目講義用 (定員約80名)",
+        "campus": "箕面"
+    },
+    {
+        "id": "世界言語eラーニング演習室",
+        "primaryAbbr": "世界言語eラーニング演習室",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 3F",
+        "details": "最新PC/CALLシステム配備、LL・発音・リスニング演習用",
+        "campus": "箕面"
+    },
+    {
+        "id": "専攻語学演習室01 (英語)",
+        "primaryAbbr": "専攻語学演習室01 (英語)",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 5F",
+        "details": "少人数徹底語学ゼミナール (ディベート・高度表現)",
+        "campus": "箕面"
+    },
+    {
+        "id": "専攻語学演習室02 (中国語)",
+        "primaryAbbr": "専攻語学演習室02 (中国語)",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 5F",
+        "details": "少人数徹底語学ゼミナール (講読・会話・文化研究)",
+        "campus": "箕面"
+    },
+    {
+        "id": "専攻語学演習室12 (専攻語学)",
+        "primaryAbbr": "専攻語学演習室12 (専攻語学)",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 6F",
+        "details": "各国専攻語学の専門演習・少人数ゼミスペース",
+        "campus": "箕面"
+    },
+    {
+        "id": "専攻語学演習室25 (専攻語学)",
+        "primaryAbbr": "専攻語学演習室25 (専攻語学)",
+        "aliases": [
+            "箕面新キャンパス外国語学部棟"
+        ],
+        "location": "外国語学部 箕面新キャンパス外国語学部棟 6F",
+        "details": "各国専攻語学の専門演習・少人数ゼミスペース",
+        "campus": "箕面"
+    }
+];
+        
+        // ブラウザの記憶領域（localStorage）から過去の学習データを読み込む
+        let clickLogs = JSON.parse(localStorage.getItem("classroom_click_logs_v2")) || {};
+
+        const aliasDict = {
+            "全教": "共", "ぜんきょう": "共", "基工": "基礎工", "pc": "call", "パソコン": "call"
+        };
+
+        // ==========================================
+        // 1. 表記揺れ吸収パイプライン
+        // ==========================================
+        function normalizeText(text) {
+            let halfStr = text.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
+                return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+            });
+            return halfStr.toLowerCase().replace(/\s+/g, '');
+        }
+
+        function applyAlias(text) {
+            let res = text;
+            for (let key in aliasDict) {
+                if (res.includes(key)) res = res.replace(key, aliasDict[key]);
+            }
+            return res;
+        }
+
+        function extractBuildingAndRoom(text) {
+            const alphaMatch = text.match(/[a-z]/);
+            const building = alphaMatch ? alphaMatch[0].toUpperCase() : "";
+            const numbers = (text.match(/\d+/g) || []).join("");
+            return { building, numbers };
+        }
+
+        // ==========================================
+        // 2. 検索＆スコアリング処理
+        // ==========================================
+        function searchRoom() {
+            const rawQuery = document.getElementById("searchInput").value.trim();
+            const resultArea = document.getElementById("resultArea");
+            if (rawQuery === "") {
+                resultArea.innerHTML = "";
+                return;
+            }
+
+            // パイプライン実行
+            const step1 = normalizeText(rawQuery);
+            const step2 = applyAlias(step1);
+            const { building, numbers } = extractBuildingAndRoom(step2);
+
+            let results = [];
+
+            rooms.forEach(room => {
+                let score = 0;
+                let isMatch = false;
+                const roomNorm = normalizeText(room.primaryAbbr);
+                const locNorm = normalizeText(room.location);
+
+                // A. 文字列の部分一致チェック (基本スコア: 10点)
+                if (roomNorm.includes(step2) || locNorm.includes(step2)) {
+                    isMatch = true;
+                    score += 10;
+                }
+
+                // B. ルール抽出マッチ (強力なスコア: 最大50点)
+                if (building && roomNorm.toUpperCase().includes(building) && numbers && roomNorm.includes(numbers)) {
+                    isMatch = true;
+                    score += 50; 
+                } 
+                else if (numbers && roomNorm.includes(numbers) && step2.length > 1) {
+                    isMatch = true;
+                    score += 5;
+                }
+
+                // C. 学習スコアの加算 (1クリックにつき +20点)
+                if (isMatch) {
+                    if (clickLogs[rawQuery] && clickLogs[rawQuery][room.id]) {
+                        score += clickLogs[rawQuery][room.id] * 20;
+                    }
+                    results.push({ room, score });
+                }
+            });
+
+            // スコアが高い順に並び替え
+            results.sort((a, b) => b.score - a.score);
+
+            // 結果の表示
+            if (results.length > 0) {
+                resultArea.innerHTML = results.map((res, index) => `
+                    <div class="result-card">
+                        <span class="score-badge">スコア: ${res.score}</span>
+                        <span class="badge">${res.room.campus}</span>
+                        <h3 style="margin-top: 5px; margin-bottom: 8px; color: #333;">【${res.room.primaryAbbr}】</h3>
+                        <p style="margin: 5px 0;"><strong>配置:</strong> ${res.room.location}</p>
+                        ${res.room.details ? `<p style="margin: 5px 0; font-size: 0.9em; color: #555;"><strong>用途:</strong> ${res.room.details}</p>` : ''}
+                        
+                        <button class="learn-btn" id="btn-${index}" onclick="learnClick('${rawQuery}', '${res.room.id}', 'btn-${index}')">
+                            👆 よく使う教室として登録 (学習)
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                resultArea.innerHTML = `<div class="error">該当なし: 検索条件に一致する教室が見つかりません。</div>`;
+            }
+        }
+
+        // エンターキー検索
+        document.getElementById("searchInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") { event.preventDefault(); searchRoom(); }
+        });
+
+        // ==========================================
+        // 3. ブラウザ学習機能 (localStorageへの保存)
+        // ==========================================
+        function learnClick(rawQuery, roomId, btnId) {
+            if (!clickLogs[rawQuery]) clickLogs[rawQuery] = {};
+            if (!clickLogs[rawQuery][roomId]) clickLogs[rawQuery][roomId] = 0;
+            clickLogs[rawQuery][roomId] += 1;
+
+            localStorage.setItem("classroom_click_logs_v2", JSON.stringify(clickLogs));
+
+            const btn = document.getElementById(btnId);
+            btn.innerHTML = "✅ 学習完了！次回から上位に表示されます";
+            btn.classList.add("learned");
+            btn.disabled = true;
+        }
+    </script>
+</body>
+</html>
